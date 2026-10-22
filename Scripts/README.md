@@ -27,6 +27,7 @@ flowchart TD
     style N2 fill:#d4edda,stroke:#28a745,stroke-width:2px
     style N1 fill:#f8d7da,stroke:#dc3545,stroke-width:2px
     style N3 fill:#e2e3e5,stroke:#6c757d,stroke-width:2px
+```
 
 ## 2. Bitácora de Failover y Alta Disponibilidad
 Se realizó una prueba de estrés para simular la caída abrupta del servidor principal y evaluar la resiliencia de la red. 
@@ -42,6 +43,7 @@ Se realizó una prueba de estrés para simular la caída abrupta del servidor pr
 Para proteger la integridad de los datos críticos del taller de reprogramación, se implementaron transacciones ACID mediante el manejo de sesiones. Esto asegura que operaciones compuestas (como registrar un nuevo servicio y actualizar el contador del cliente) se ejecuten como una unidad atómica: o se completan todas, o no se guarda ninguna.
 
 **Escenario de Éxito (CommitTransaction):**
+
 ```javascript
 const sesionNueva = db.getMongo().startSession();
 const dbRepro = sesionNueva.getDatabase("ReproStage");
@@ -59,9 +61,11 @@ try {
 } finally {
   sesionNueva.endSession();
 }
+```
 
-Escenario de Fallo Provocado (Rollback):
+**Escenario de Fallo Provocado (Rollback):**
 
+```javascript
 const sesionFallo = db.getMongo().startSession();
 const dbRepro = sesionFallo.getDatabase("ReproStage");
 sesionFallo.startTransaction();
@@ -76,15 +80,14 @@ try {
 } finally {
   sesionFallo.endSession();
 }
+```
 
-4. Reporte de Securización (Security by Design)
+## 4. Reporte de Securización (Security by Design)
 Históricamente, muchas infraestructuras NoSQL sufrieron ataques de ransomware por configuraciones permisivas por defecto. Para blindar ReproStage, se implementó una política de seguridad estricta:
 
-Autorización Obligatoria e Inmunización: Se configuró el archivo mongod.conf utilizando la directiva security.authorization: "enabled" junto con un keyFile de acceso cifrado inter-nodo. Cualquier intento de conexión anónima a la base de datos es rechazado en la puerta de enlace arrojando el error Command buildInfo requires authentication.
+- **Autorización Obligatoria e Inmunización:** Se configuró el archivo `mongod.conf` utilizando la directiva `security.authorization: "enabled"` junto con un `keyFile` de acceso cifrado inter-nodo. Cualquier intento de conexión anónima a la base de datos es rechazado en la puerta de enlace arrojando el error `Command buildInfo requires authentication`.
+- **Principio de Mínimos Privilegios:** Se crearon roles específicos para evitar el uso del administrador general en operaciones cotidianas:
+  - **`adminRepro`:** Rol `root` en la base `admin`, de uso exclusivo para mantenimiento de infraestructura.
+  - **`usuarioTaller`:** Rol `readWrite` limitado estrictamente a la base de datos `ReproStage`.
 
-Principio de Mínimos Privilegios: Se crearon roles específicos para evitar el uso del administrador general en operaciones cotidianas:
-
-adminRepro: Rol root en la base admin, de uso exclusivo para mantenimiento de infraestructura.
-
-usuarioTaller: Rol readWrite limitado estrictamente a la base de datos ReproStage.
 ![Error Autenticacion](<../Docs/error autenticacion.png>)
